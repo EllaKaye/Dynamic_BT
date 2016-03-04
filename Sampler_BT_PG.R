@@ -1,18 +1,34 @@
 library(BayesLogit)
 library(MASS)
+
 Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length, time, team_length){
-  y_plus = matrix(0,team_pair_length, time)
-  beta_time = rnorm(team_pair_length)
-  yplus[1,] = x_matrix[[1]] %*% beta_time + mvrnorm(1,0,diag(h_matrix_non_diag[,1]))
+  y_plus = matrix(0, team_pair_length, time)
+  beta_plus = matrix(0, team_length, time)
+  beta_time[,1] = rnorm(team_pair_length)
+  yplus[,1] = x_matrix[[1]] %*% beta_time[,1] + mvrnorm(1,0,diag(h_matrix_non_diag[,1]))
   for (t in 2 : time){
     #r_t scalar here
-    beta_time = t_t %*% as.matrix(beta_time) + r_t * rnorm(team_length)
-    yplus[t,] = x_matrix[[t]] %*% beta_time + mvrnorm(1,0,diag(h_matrix_non_diag[,t]))
+    beta_time[,t] = t_t %*% as.matrix(beta_time) + r_t * rnorm(team_length)
+    yplus[,t] = x_matrix[[t]] %*% beta_time[,t] + mvrnorm(1,0,diag(h_matrix_non_diag[,t]))
   }
-  Recursion = yplus
+  Recursion = list(y = yplus, beta = beta_plus)
 }
+
 Backward_recursion = function(y_vec, index_matrix_list, team_pair_length, time, team_length, F_t, K_t, L_t, P_t, r_t, t_t, h_t_non_diag){
-  A_matrix = 
+  A_matrix = matrix(0, team_length, time)
+  V_matrix = matrix(0, team_pair_length, time)
+  A_matrix[,1] = rep(0, team_length)
+  V_matrix[,1] = y_vec[, 1] - index_matrix_list[[1]] %*% A_matrix[, 1]
+  for (t in 2 : time){
+    A_matrix[, t] = t_t %*% A_matrix[, t-1] + K_t[ , , t] %*% V_matrix[, t-1]
+    V_matrix[, t] = y_vec[, t] - index_matrix_list[[t]] %*% A_matrix[, t]
+  }
+  R_matrix = matrix(0, team_length, time + 1)
+  R_matrix[ , time +1] = rep(0, team_length)
+  for (t in time : 1){
+    R_matrix[,t] = index_matrix_list[t]%*%gsolve(F_t[,t])%*%V_matrix[,t] + t(L_t[,t])%*%r_t[,t]
+  }
+  Backward_recursion = R_matrix
 }
 
 PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, total_vector_matrix, pho, sigma, index_matrix_list){
@@ -20,10 +36,10 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
   time = dim(win_vector_matrix)[2]
   team_pair_length = dim(win_vector_matrix)[1]
   team_length = dim(index_matrix_list[[1]])[2]
-  beta_init_list <- lapply(beta_init_list <-vector(mode = 'list', time), function(x) x <- 1 : team_length)
-  beta_init_list[[1]] <- rnorm(team_length)
+  beta_init_list <- matrix(0, team_length, time)
+  beta_init_list[,1] <- rnorm(team_length)
   for (i in 2 : time){
-    beta_init_list[[i]] = pho * beta_init_list[[i-1]] + sigma* sqrt(1-pho^2)*rnorm(team_length)
+    beta_init_list[, i] = pho * beta_init_list[,i-1] + sigma* sqrt(1-pho^2)*rnorm(team_length)
   }
   beta_samples[[1]] = beta_init_list
   poly_gamma_var = matrix(0, team_pair_length, time)
@@ -58,7 +74,9 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
      index = index + team_pair_length + team_length
     }
     
-    y_plus = Recursion(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length, time, team_length)
+    Value = Recursion(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length, time, team_length)
+    y_plus = Value$y
+    beta_plus = Value$beta
     P_matrix = array(0,dim = c(team_length, team_length, time))
     F_matrix = array(0, dim = c(team_pair_length, team_pair_length, time))
     K_matrix = array(0, dim = c(team_length, team_pair_length, time))
@@ -66,12 +84,21 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     P_matrix[ , , 1] = diag(c(team_length))
     
     for (t in 1 : time-1){
-      F_matrix[ , , t] = index_matrix_list[[t]] %*% P_matrix[ , , 1] %*% t(index_matrix_list[[t]]) + diag(h_t_non_diag[, t])
+      F_matrix[ , , t] = index_matrix_list[[t]] %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) + diag(h_t_non_diag[, t])
       K_matrix[ , , t] = t_t %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) %*% ginv(F_matrix[ , , t])
       L_matrix[ , , t] = t_t - K_matrix[ , , t] %*% index_matrix_list[[t]]
       P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t %*% diag(team_length) %*% t(r_t)
     }
+    F_matrix[ , , time] = index_matrix_list[[time]] %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) + diag(h_t_non_diag[, time])
+    K_matrix[ , , time] = t_t %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) %*% ginv(F_matrix[ , , time])
+    L_matrix[ , , time] = t_t - K_matrix[ , , time] %*% index_matrix_list[[time]]
     
-    
-  }
-  }
+    R_matrix = Backward_recursion((z_matrix - y), index_matrix_list, team_pair_length, time, team_length, F_matrix, K_matrix, L_matrix, P_matrix, r_t, t_t, h_t_non_diag)
+    beta_samples_t = matrix(0, team_length, time)
+    beta_samples_t[,1] = R_matrix[,1]
+    for (t in 2:time){
+      beta_samples_t[,t] = t_t%*%beta_samples[,t-1] + r_t%*%t(r_t)%*%R_matrix[,t-1]
+    }
+    beta_samples[[s]] = beta_samples_t + beta_plus
+   }
+}
