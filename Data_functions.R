@@ -1,3 +1,5 @@
+## N.B. not all these functions will be useful! They give different data types, and some are exploratory simpler cases.
+
 # matrix for number of times i beats j at time t, as function
 beats.t <- function(data, league.no, year) {
   data <- subset(data, YEAR == year)
@@ -83,7 +85,7 @@ upper.tri.row <- function(mat) {
   t(mat)[lower.tri(t(mat))]
 } 
 
-# matrix to number of times i beats j, with cols as year
+# matrix to number of times i beats j (row for each pair), with cols as year
 beats.all.t.mat <- function(data, league.no) {
   
   # subset data by league and wins (no drawns)
@@ -122,7 +124,7 @@ beats.all.t.list.to.mat <- function(beats.list) {
 }
 
 # matrix to number of times i plays j, with cols as year, takes result of beats.all.t.list as input
-played.all.t.mat <- function(beats.list) {
+played.all.t.list.to.mat <- function(beats.list) {
   out <- lapply(beats.list, played.t)
   out <- sapply(out, upper.tri.row)
   out
@@ -183,19 +185,37 @@ pairs.mat <- function(K) {
 
 # matrix with 1 for team i, -1 for team j, from total of K teams, and row of zeros where those teams don't play
 # returns a list with one of these matrices for each year
-pairs.mat.zero <- function(played.mat, num.teams) {
+pairs.mat.zero <- function(played.mat, K) {
   # number of years in the data
   TT <- ncol(played.mat)
   
-  pairs <- pairs.mat(num.teams)
+  pairs <- pairs.mat(K)
   
   # initialise list
   out <- list()
   
+  # create logical matrix (1 if played, 0 if not - regardless of number of times played)
+  played.mat[as.logical(played.mat)] <- 1
+
   # for each timepoint, append to the list the pairs matrix with rows of zeros for any pairs that have not played
   for (i in 1:TT) {
     out[[length(out)+1]] <- pairs * played.mat[,i]
   }
   out
+}
+
+# function to extract info on years of league data, and teams played
+years.teams <- function(data, league.no) {
+  # subset data by league and wins (no drawns)
+  data <- subset(data, No.LEAGUE == league.no)
+  data <- subset(data, CODEWID != "D")
+  
+  # get team and year names 
+  teams <- sort(union(unique(data$No.TEAM1), unique(data$No.TEAM2)))
+  K <- length(teams)
+  years <- sort(unique(data$YEAR))
+  TT <- length(years)
+  
+  return(list(teams=teams, num.teams=K, years=years, num.years=TT))
 }
 
