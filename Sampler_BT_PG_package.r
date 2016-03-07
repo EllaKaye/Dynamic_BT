@@ -15,7 +15,10 @@ library(dlm)
     Recursion = list(y = y_plus, beta = beta_plus)
   }
 
-PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, total_vector_matrix, pho, sigma, index_matrix_list){
+PGSmootherPost_package = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, total_vector_matrix, pho, sigma, index_matrix_list){
+  start.time = Sys.time()
+  print("Start time = ")
+  print(start.time)
   beta_samples = lapply(beta_init_list <-vector(mode = 'list', iterations), function(x) x <- list())
   time = dim(win_vector_matrix)[2]
   team_pair_length = dim(win_vector_matrix)[1]
@@ -27,6 +30,7 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
   }
   beta_samples[[1]] = beta_init_list
   poly_gamma_var = matrix(0, team_pair_length, time)
+  pb <- txtProgressBar(min = 0, max = iterations - 1, style = 3)
   for (s in 2 : iterations){
     
     team_play_matrix = matrix(0, team_pair_length, time)
@@ -81,7 +85,11 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     FilteredDLM = dlmFilter(y_star, dlm_model)
     beta_samples_t = dlmSmooth.dlmFiltered(FilteredDLM)$s[(2: (time+1)),]
     beta_samples[[s]] = t(beta_samples_t) + beta_plus
-    print(s)
+    setTxtProgressBar(pb, s)
   }
+  close(pb)
+  end.time = Sys.time()
+  print("End time = ")
+  print(end.time)
   PGSmootherPost = beta_samples 
 }
