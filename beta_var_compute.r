@@ -1,6 +1,9 @@
-
+GGGG = matrix(0,9,37)
+for (i in 2: 10) GGGG[i-1,] = packageSamples[[i]][,11] 
+rowMeans(GGGG)
 beta_var_single = 1:400
 beta_var_time = matrix(0, 37, 11)
+
 
 for (l in 1:11){
  for (j in 1:37){

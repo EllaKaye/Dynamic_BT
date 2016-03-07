@@ -62,17 +62,26 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     y_plus = Value$y
     beta_plus = Value$beta
     y_star = (z_matrix - y_plus)
-    dlm(list_components)
-    m0 = 0
-    C0 = diag(team_length)
-    GG = pho
-    WW = sigma*sqrt(1-pho^2)
-    JFF =   
-    JVV = 
-    dlm_model = dlm(parameter_list)
+    comp_list = list()
+    comp_list$m0 = rep(0,team_length)
+    comp_list$C0 = diag(team_length)
+    comp_list$GG = pho* diag(team_length)
+    comp_list$W = sigma*sqrt(1-pho^2)*diag(team_length)
+    comp_list$V = diag(rep(1,team_pair_length))
+    comp_list$JV = diag(1:team_pair_length)
+    comp_list$FF = matrix(0,team_pair_length, team_length)
+    comp_list$JFF = t(matrix(((team_pair_length+1) : (team_pair_length+team_length*team_pair_length)), team_length, team_pair_length))
+    X = matrix(0, time, team_pair_length+team_length*team_pair_length)
+    for (t in 1 : time){
+      X[t, 1:team_pair_length] =  h_t_non_diag[, t]
+      X[t, ((team_pair_length+1): (team_pair_length+team_length*team_pair_length))] = as.vector(t(index_matrix_list[[t]]))
+    }
+    comp_list$X = X
+    dlm_model = dlm(comp_list)
     FilteredDLM = dlmFilter(y_star, dlm_model)
-    dlmSmooth.dlmFiltered(FilteredDLM)
-    beta_samples[[s]] = beta_samples_t + beta_plus
+    beta_samples_t = dlmSmooth.dlmFiltered(FilteredDLM)$s[(2: (time+1)),]
+    beta_samples[[s]] = t(beta_samples_t) + beta_plus
+    print(s)
   }
   PGSmootherPost = beta_samples 
 }
