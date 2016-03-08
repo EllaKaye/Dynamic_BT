@@ -14,7 +14,7 @@ top.teams <- c(131, 136, 138, 139, 142, 143, 147)
 premier.top <- subset(premier, No.TEAM1 %in% top.teams & No.TEAM2 %in% top.teams)
 K.pt <- length(top.teams)
 years.pt <- sort(unique(premier.top$YEAR))
-TT.pt <- length(pt.years)
+TT.pt <- length(years.pt)
 match_ups.pt <- t(combn(top.teams,2))
 cnames <- c("idx", "Team.i", "Team.j", "win", "draw", "lose")
 Kc2 <- choose(K.pt,2)
@@ -59,6 +59,7 @@ for (l in 1:nrow(premier.top)) {
 
 # cull final year (not enough data)
 beats.pt[[11]] <- NULL
+
 
 # take only win/draw/lose columns
 beats.pt <- lapply(beats.pt, function(df) df[,c("win", "draw", "lose")])
