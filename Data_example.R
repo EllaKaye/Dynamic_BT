@@ -45,6 +45,7 @@ UK.teams.df
 write(UK.teams.df, file = "Premier teams")
 
 ## Using the function for home/away
+# only need one function call - can extract everything we need from result
 UK.ha <- home.away(results, 9)
 
 # matrix with one row for each pair (i,j) (nrow = 2 * (K choose 2)) - with i playing at home - and one column for each year
