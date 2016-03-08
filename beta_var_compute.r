@@ -10,12 +10,15 @@ beta_var_time = matrix(0, 37, 11)
 
 
 Sample_thin = list()
-means_over_time = matrix(0,37, 11)
-for (j in 1 : 11){
-  GGGG = matrix(0, 400,37)
-  for (i in 101: 500) GGGG[i-100,] = Samples[[i]][, j] 
+means_over_time = matrix(0,7, 10)
+premier_sample0.7sigma1 = premier_sample0.7sigma1[seq(1, 10000, 5)]
+for (j in 1 : 10){
+  GGGG = matrix(0, 1900,7)
+  for (i in 101: 2000) GGGG[i-100,] = premier_sample0.7sigma1[[i]][, j] 
   means_over_time[,j] = colMeans(GGGG)
 }
+# 130 131 132 136 138 139 141 142 143 146 147 148 196 195 reorder 
+
 
 for (l in 1:11){
   for (j in 1:37){

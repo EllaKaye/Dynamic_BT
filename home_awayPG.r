@@ -9,7 +9,7 @@ Recursion.ha = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_len
   for (t in 2 : time){
     #r_t scalar here
     dummy_vec = as.vector(rnorm(team_length))
-    dummy_vec[team_length] = sigma_ha
+    dummy_vec[team_length] = (rnorm(1) * sigma_ha)/r_t
     beta_plus[, t] = t_t %*% (beta_plus[,t-1]) + r_t * dummy_vec
     y_plus[,t] = x_matrix[[t]] %*% beta_plus[,t] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,t]))
   }
@@ -46,6 +46,7 @@ PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vec
   beta_init_list[,1] <- rnorm(team_length)
   for (i in 2 : time){
     beta_init_list[, i] = pho * beta_init_list[,i-1] + sigma* sqrt(1-pho^2)*rnorm(team_length)
+    beta_init_list[team_length, i] =  beta_init_list[team_length,i-1] + sigma_ha*rnorm(1)
   }
   beta_samples[[1]] = beta_init_list
   poly_gamma_var = matrix(0, team_pair_length, time)
@@ -78,8 +79,7 @@ PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vec
     for (t in 1 : time){
       new_index = index + team_pair_length
       w_plus[index: (new_index - 1)] = mvrnorm(1, rep(0,length(h_t_non_diag[,t])), diag(h_t_non_diag[,t]))
-      w_plus[new_index : (new_index + team_length - 2) ] = rnorm((team_length-1))
-      w_plus[(new_index + team_length -1)] = sigma_ha
+      w_plus[new_index : (new_index + team_length - 1) ] = rnorm((team_length))
       index = index + team_length + team_pair_length
     }
     
@@ -95,7 +95,9 @@ PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vec
       F_matrix[ , , t] = index_matrix_list[[t]] %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) + diag(h_t_non_diag[, t])
       K_matrix[ , , t] = t_t %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) %*% ginv(F_matrix[ , , t])
       L_matrix[ , , t] = t_t - K_matrix[ , , t] %*% index_matrix_list[[t]]
-      P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t * diag(team_length) * r_t
+      dummy_2 = diag(team_length)
+      dummy_2[team_length] = sigma_ha/((r_t)^2) 
+      P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t * diag(team_length) * r_t 
     }
     F_matrix[ , , time] = index_matrix_list[[time]] %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) + diag(h_t_non_diag[, time])
     K_matrix[ , , time] = t_t %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) %*% ginv(F_matrix[ , , time])
@@ -106,7 +108,7 @@ PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vec
     beta_samples_t[,1] = R_matrix[,1]
     for (t in 2 : time){
       dummy = r_t*(r_t)*R_matrix[,t-1]
-      dummy[team_length] = sigma_ha
+      dummy[team_length] = sigma_ha * sigma_ha * R_matrix[team_length, t-1]
       beta_samples_t[,t] = t_t %*% beta_samples_t[,t-1] + dummy
     }
     beta_samples[[s]] = beta_samples_t + beta_plus
