@@ -1,7 +1,7 @@
 library(BayesLogit)
 library(MASS)
 
-Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length, time, team_length){
+Recursion.ha = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length, time, team_length, sigma_ha){
   y_plus = matrix(0, team_pair_length, time)
   beta_plus = matrix(0, team_length, time)
   beta_plus[,1] = rnorm(team_length)
@@ -9,14 +9,14 @@ Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length
   for (t in 2 : time){
     #r_t scalar here
     dummy_vec = as.vector(rnorm(team_length))
-    dummy_vec[team_length] = 0
+    dummy_vec[team_length] = sigma_ha
     beta_plus[, t] = t_t %*% (beta_plus[,t-1]) + r_t * dummy_vec
     y_plus[,t] = x_matrix[[t]] %*% beta_plus[,t] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,t]))
   }
   Recursion = list(y = y_plus, beta = beta_plus)
 }
 
-Backward_recursion = function(y_vec, index_matrix_list, team_pair_length, time, team_length, F_t, K_t, L_t, P_t, r_t, t_t, h_t_non_diag){
+Backward_recursion.ha = function(y_vec, index_matrix_list, team_pair_length, time, team_length, F_t, K_t, L_t, P_t, r_t, t_t, h_t_non_diag){
   A_matrix = matrix(0, team_length, time)
   V_matrix = matrix(0, team_pair_length, time)
   A_matrix[,1] = rep(0, team_length)
@@ -34,7 +34,7 @@ Backward_recursion = function(y_vec, index_matrix_list, team_pair_length, time, 
   Backward_recursion = R_matrix
 }
 
-PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, total_vector_matrix, pho, sigma, index_matrix_list){
+PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, total_vector_matrix, pho, sigma, index_matrix_list, sigma_ha){
   start.time = Sys.time()
   print("Start time = ")
   print(start.time)
@@ -69,7 +69,7 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     z_matrix = (win_vector_matrix - 0.5 * total_vector_matrix) / poly_gamma_var 
     h_t_non_diag = 1/ poly_gamma_var
     t_t = pho * diag(team_length)
-    t_t[team_length, team_length] = 0
+    t_t[team_length, team_length] = 1
     r_t = sigma * sqrt(1-pho^2)
     
     #Draw from p(noise for all n)
@@ -77,13 +77,13 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     index = 1
     for (t in 1 : time){
       new_index = index + team_pair_length
-      w_plus[index: (new_index - 2)] = mvrnorm(1, rep(0,length(h_t_non_diag[,t])), diag(h_t_non_diag[,t]))
+      w_plus[index: (new_index - 1)] = mvrnorm(1, rep(0,length(h_t_non_diag[,t])), diag(h_t_non_diag[,t]))
       w_plus[new_index : (new_index + team_length - 2) ] = rnorm((team_length-1))
-      w_plus[(new_index + team_length -1)] = 0
+      w_plus[(new_index + team_length -1)] = sigma_ha
       index = index + team_length + team_pair_length
     }
     
-    Value = Recursion(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length, time, team_length)
+    Value = Recursion.ha(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length, time, team_length, sigma_ha)
     y_plus = Value$y
     beta_plus = Value$beta
     P_matrix = array(0,dim = c(team_length, team_length, time))
@@ -101,13 +101,13 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     K_matrix[ , , time] = t_t %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) %*% ginv(F_matrix[ , , time])
     L_matrix[ , , time] = t_t - K_matrix[ , , time] %*% index_matrix_list[[time]]
     
-    R_matrix = Backward_recursion((z_matrix - y_plus), index_matrix_list, team_pair_length, time, team_length, F_matrix, K_matrix, L_matrix, P_matrix, r_t, t_t, h_t_non_diag)
+    R_matrix = Backward_recursion.ha((z_matrix - y_plus), index_matrix_list, team_pair_length, time, team_length, F_matrix, K_matrix, L_matrix, P_matrix, r_t, t_t, h_t_non_diag)
     beta_samples_t = matrix(0, team_length, time)
     beta_samples_t[,1] = R_matrix[,1]
-    dummy = diag(team_length)
-    dummy[team_length, team_length] = 0
     for (t in 2 : time){
-      beta_samples_t[,t] = t_t %*% beta_samples_t[,t-1] + r_t*(r_t)*R_matrix[,t-1]%*%dummy
+      dummy = r_t*(r_t)*R_matrix[,t-1]
+      dummy[team_length] = sigma_ha
+      beta_samples_t[,t] = t_t %*% beta_samples_t[,t-1] + dummy
     }
     beta_samples[[s]] = beta_samples_t + beta_plus
     setTxtProgressBar(pb, s)
