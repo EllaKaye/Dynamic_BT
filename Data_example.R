@@ -34,8 +34,23 @@ UK.played.mat <- played.all.t.list.to.mat(UK.beats.list)
 # takes output of Step 4 and Step 2 as input
 UK.pairs.mats <- pairs.mat.zero(UK.played.mat, K = UK.years.teams$num.teams)
 
-# assign names to the list (if desired)
+# Step 6: assign names to the list (if desired)
 names(UK.pairs.mats) <- UK.years.teams$years
+
+# regular Bradley-Terry (no ties), corresponding to Steps 1-5 above, only difference being that it's for a given subset of teams within a league
+top.teams <- c(131, 136, 138, 139, 142, 143, 147)
+# Step 1
+UK.beats.list.pt <- beats.all.t.list(results, 9, top.teams)
+# Step 2
+UK.years.teams.pt <- years.teams(results, 9, top.teams)
+# Step 3
+UK.beats.mat.pt <- beats.all.t.list.to.mat(UK.beats.list.pt)
+# Step 4
+UK.played.mat.pt <- played.all.t.list.to.mat(UK.beats.list.pt)
+# Step 5
+UK.pairs.mats.pt <- pairs.mat.zero(UK.played.mat.pt, K = UK.years.teams.pt$num.teams)
+# Step 6
+names(UK.pairs.mats.pt) <- UK.years.teams.pt$years
 
 # UK teams
 UK.teams <- UK.years.teams$teams
@@ -67,3 +82,9 @@ UK.ha.match.teams <- UK.ha$match.teams
 # the (K+1)th column is a column of 1s (if pair played - 0 otherwise), to pick of the coefficient for the home advantage
 # if two teams did not play each other that year, the row for that pair is just zeros
 UK.ha.X <- UK.ha$X
+
+# home and away for a subset of teams in a league 
+## exactly as home.away, but with an additional argument for a vector of team numbers to include
+top.teams <- c(131, 136, 138, 139, 142, 143, 147)
+premier.top.ha <- home.away.teams(results, 9, top.teams)
+
