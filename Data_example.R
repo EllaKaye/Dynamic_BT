@@ -84,7 +84,7 @@ UK.ha.match.teams <- UK.ha$match.teams
 UK.ha.X <- UK.ha$X
 
 # home and away for a subset of teams in a league 
-## exactly as home.away, but with an additional argument for a vector of team numbers to include
 top.teams <- c(131, 136, 138, 139, 142, 143, 147)
-premier.top.ha <- home.away.teams(results, 9, top.teams)
-
+premier.top.ha <- home.away(results, 9, top.teams)
+premier.top.ha.beats <- premier.top.ha$beats
+dim(premier.top.ha.beats)
