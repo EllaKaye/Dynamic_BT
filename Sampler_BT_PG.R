@@ -8,7 +8,7 @@ Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length
   y_plus[,1] = x_matrix[[1]] %*% beta_plus[,1] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,1]))
   for (t in 2 : time){
     #r_t scalar here
-    beta_plus[, t] = t_t %*% (beta_plus[,t-1]) + r_t * as.vector(rnorm(team_length))
+    beta_plus[, t] = t_t %*% (beta_plus[, t-1]) + r_t * as.vector(rnorm(team_length))
     y_plus[,t] = x_matrix[[t]] %*% beta_plus[,t] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,t]))
   }
   Recursion = list(y = y_plus, beta = beta_plus)
