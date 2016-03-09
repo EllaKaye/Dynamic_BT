@@ -1,7 +1,7 @@
 library(BayesLogit)
 library(MASS)
 
-Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length_double, time, team_length){
+Recursion.tie = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length_double, time, team_length){
   y_plus = matrix(0, team_pair_length_double, time)
   beta_plus = matrix(0, team_length, time)
   beta_plus[,1] = rnorm(team_length)
@@ -17,7 +17,7 @@ Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length
   Recursion = list(y = y_plus, beta = beta_plus)
 }
 
-Backward_recursion = function(y_vec, index_matrix_list, team_pair_length_double, time, team_length, F_t, K_t, L_t, P_t, r_t, t_t, h_t_non_diag){
+Backward_recursion.tie = function(y_vec, index_matrix_list, team_pair_length_double, time, team_length, F_t, K_t, L_t, P_t, r_t, t_t, h_t_non_diag){
   A_matrix = matrix(0, team_length, time)
   V_matrix = matrix(0, team_pair_length_double, time)
   A_matrix[,1] = rep(0, team_length)
@@ -98,7 +98,7 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
       w_plus[new_index : (new_index + team_length -1) ] = rnorm(team_length)
       index = index + team_length + team_pair_length_double
     }
-    Value = Recursion(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length_double, time, team_length)
+    Value = Recursion.tie(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length_double, time, team_length)
     y_plus = Value$y
     beta_plus = Value$beta
     P_matrix = array(0,dim = c(team_length, team_length, time))
@@ -119,7 +119,7 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
     K_matrix[ , , time] = t_t %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) %*% ginv(F_matrix[ , , time])
     L_matrix[ , , time] = t_t - K_matrix[ , , time] %*% index_matrix_list[[time]]
     
-    R_matrix = Backward_recursion((z_matrix - y_plus), index_matrix_list, team_pair_length_double, time, team_length, F_matrix, K_matrix, L_matrix, P_matrix, r_t, t_t, h_t_non_diag)
+    R_matrix = Backward_recursion.tie((z_matrix - y_plus), index_matrix_list, team_pair_length_double, time, team_length, F_matrix, K_matrix, L_matrix, P_matrix, r_t, t_t, h_t_non_diag)
     beta_samples_t = matrix(0, team_length, time)
     start_value = rep(0,team_length)
     start_value[team_length] = gamma
