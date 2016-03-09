@@ -91,13 +91,14 @@ PGSmootherPostHA = function(samples_size, iterations, thinning, burn_in, win_vec
     K_matrix = array(0, dim = c(team_length, team_pair_length, time))
     L_matrix = array(0, dim = c(team_length, team_length, time))
     P_matrix[ , , 1] = diag(c(team_length))
+    P_matrix[team_length, team_length, 1] = 0
     for (t in 1 : (time - 1)){
       F_matrix[ , , t] = index_matrix_list[[t]] %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) + diag(h_t_non_diag[, t])
       K_matrix[ , , t] = t_t %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) %*% ginv(F_matrix[ , , t])
       L_matrix[ , , t] = t_t - K_matrix[ , , t] %*% index_matrix_list[[t]]
       dummy_2 = diag(team_length)
-      dummy_2[team_length] = sigma_ha/((r_t)^2) 
-      P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t * diag(team_length) * r_t 
+      dummy_2[team_length, team_length] = sigma_ha/((r_t)^2) 
+      P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t * dummy_2 * r_t 
     }
     F_matrix[ , , time] = index_matrix_list[[time]] %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) + diag(h_t_non_diag[, time])
     K_matrix[ , , time] = t_t %*% P_matrix[ , , time] %*% t(index_matrix_list[[time]]) %*% ginv(F_matrix[ , , time])

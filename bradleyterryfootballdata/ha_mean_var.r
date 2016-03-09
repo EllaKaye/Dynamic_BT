@@ -21,7 +21,7 @@ for (l in 1:10){
     for (i in 101:5000) {
       beta_var_single[i-100] = Samples[[i]][j,l]
     }
-    beta_var_time0.7sigma0.7_ha[j,l] = var(beta_var_single)
+    beta_var_time0.7sigma0.7_ha[j,l] = quantile(beta_var_single,c(0.9))
   }
   beta_var_single = 1:4900
 }
