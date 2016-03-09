@@ -5,6 +5,7 @@ Recursion = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length
   y_plus = matrix(0, team_pair_length_double, time)
   beta_plus = matrix(0, team_length, time)
   beta_plus[,1] = rnorm(team_length)
+  beta_plus[team_length,1] = 0
   y_plus[,1] = x_matrix[[1]] %*% beta_plus[,1] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,1]))
   for (t in 2 : time){
     #r_t scalar here
@@ -34,7 +35,7 @@ Backward_recursion = function(y_vec, index_matrix_list, team_pair_length_double,
   Backward_recursion = R_matrix
 }
 
-PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, tie_matrix, total_matrix, pho, sigma, index_matrix_list, gamma){
+PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, tie_matrix, total_matrix, pho, sigma, index_matrix_list, gamma){
   start.time = Sys.time()
   print("Start time = ")
   print(start.time)
@@ -54,7 +55,6 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
   poly_gamma_var_2 = matrix(0, team_pair_length, time)
   pb <- txtProgressBar(min = 0, max = iterations - 1, style = 3)
   for (s in 2 : iterations){
-    
     team_play_matrix = matrix(0, team_pair_length_double, time)
     for (j in 1 : time){
       team_play_matrix[, j] = index_matrix_list[[j]] %*% beta_samples[[s-1]][ ,j]
@@ -65,16 +65,20 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
         s_ij_total = win_vector_matrix[i, t]
         t_ij_total = tie_matrix[i,t]
         s_ji_total_rev = total_matrix[i,t] - s_ij_total - t_ij_total 
-        if (total_matrix[i,t] == 0){
+        if (s_ij_total + t_ij_total == 0){
           poly_gamma_var_1[i, t] = 1
-          poly_gamma_var_2[team_pair_length + i,t] = 1
         }
         else{ 
           poly_gamma_var_1[i, t] = rpg(1, s_ij_total + t_ij_total, team_play_matrix[i, t]/2)
+        }
+        if (s_ji_total_rev + t_ij_total == 0){
+          poly_gamma_var_2[i,t] = 1
+        }
+        else{
           poly_gamma_var_2[i, t] = rpg(1, s_ji_total_rev + t_ij_total, team_play_matrix[(team_pair_length + i), t]/2)
         }
       }
-    }
+    }  
     z_matrix_1 = win_vector_matrix + tie_matrix / poly_gamma_var_1
     z_matrix_2 = (total_matrix - win_vector_matrix + tie_matrix) / poly_gamma_var_2
     z_matrix = rbind(z_matrix_1, z_matrix_2)
@@ -89,12 +93,11 @@ PGSmootherPost = function(samples_size, iterations, thinning, burn_in, win_vecto
     w_plus = rep(0,team_pair_length_double * time + team_length * time)
     index = 1
     for (t in 1 : time){
-      new_index = index + team_pair_length
+      new_index = index + team_pair_length_double
       w_plus[index: (new_index - 1)] = mvrnorm(1, rep(0,length(h_t_non_diag[,t])), diag(h_t_non_diag[,t]))
       w_plus[new_index : (new_index + team_length -1) ] = rnorm(team_length)
-      index = index + team_length + team_pair_length
+      index = index + team_length + team_pair_length_double
     }
-    
     Value = Recursion(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length_double, time, team_length)
     y_plus = Value$y
     beta_plus = Value$beta
