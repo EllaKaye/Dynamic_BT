@@ -88,3 +88,13 @@ top.teams <- c(131, 136, 138, 139, 142, 143, 147)
 premier.top.ha <- home.away(results, 9, top.teams)
 premier.top.ha.beats <- premier.top.ha$beats
 dim(premier.top.ha.beats)
+
+# data for Bradley-Terry, with win, draw, lose, total (all K choose 2 by number of years) (no home advantage)
+# optional argument for subset of teams
+all <- BT.wdlt(results, 9, top.teams)
+all$win
+all$draw
+all$lose
+all$total
+all$X[[1]]
+

@@ -415,3 +415,120 @@ beats.all.t.list <- function(data, league.no, teams = NULL) {
   beats  
 }
 
+# Data formatted for Bradley Terry with win, draw, total, for pairs i, j with i < j 
+BT.wdlt <- function(data, league.no, teams = NULL) {
+  # w is for wins (or beats as I've called it)
+  # d is for draws
+  # l is for lose
+  # t is for total (or played as I've called it)
+  
+  # subset data for correct league and teams
+  data <- subset(data, No.LEAGUE == league.no)
+  if (league.no == 9) data <- subset(data, YEAR != 2010)
+  if (!is.null(teams)) data <- subset(data, No.TEAM1 %in% teams & No.TEAM2 %in% teams)
+  
+  # get team and year names 
+  if (is.null(teams)) teams <- sort(union(unique(data$No.TEAM1), unique(data$No.TEAM2)))
+  K <- length(teams)
+  years <- sort(unique(data$YEAR))
+  TT <- length(years)
+  
+  # create matrix of all possible pairs, playing both home and away
+  entries <- t(combn(teams, 2))
+  rev_entries <- entries[,c(2,1)]
+  colnames(entries) <- c("Team.i", "Team.j")
+  colnames(rev_entries) <- c("Team.i", "Team.j")
+  all_entries <- rbind(entries, rev_entries)
+      
+  # create zero-matrix of pairs by years
+  years_mat <- matrix(0, nrow=choose(K,2), ncol = TT)
+  colnames(years_mat) <- years
+  
+  # cbind the two matrices, and add index column, convert to data frame and create a copy for 'draws' and played'
+  beats.mat <- cbind(entries, years_mat)
+  beats.mat <- cbind(beats.mat, 1:(choose(K,2)))
+  colnames(beats.mat)[ncol(beats.mat)] <- "idx"
+  beats.df <- as.data.frame(beats.mat)
+  played.df <- beats.df
+  draw.df <- beats.df
+  lose.df <- beats.df
+  
+  # loop through data and assign to the appropriate place
+  for (i in 1:nrow(data)) {
+    # extract year and result
+    yr <- as.character(data[i, "YEAR"])
+    res <- data[i, "CODEWID"]
+    
+    # find right row
+    pair <- sort(c(data[i, "No.TEAM1"], data[i, "No.TEAM2"]))
+    row.id <- subset(beats.df, Team.i == pair[1] & Team.j == pair[2])$idx  
+    
+    # regardless of outcome, update played 
+    played.df[row.id, yr] <- played.df[row.id, yr] + 1
+    
+    
+    # if a draw, update draw.df
+    if (res == "D") {
+      draw.df[row.id, yr]  <- draw.df[row.id, yr] + 1
+    }
+    
+    # if Team.i wins, update beats.df
+    if (res == "W1" & pair[1] == data[i, "No.TEAM1"]) {
+      beats.df[row.id, yr]  <- beats.df[row.id, yr] + 1     
+    }
+    if (res == "W2" & pair[1] != data[i, "No.TEAM1"]) {
+      beats.df[row.id, yr]  <- beats.df[row.id, yr] + 1     
+    }
+    
+    # if Team.j wins, update lose.df
+    if (res == "W1" & pair[1] != data[i, "No.TEAM1"]) {
+      lose.df[row.id, yr]  <- lose.df[row.id, yr] + 1     
+    }
+    
+    if (res == "W2" & pair[1] == data[i, "No.TEAM1"]) {
+      lose.df[row.id, yr]  <- lose.df[row.id, yr] + 1     
+    }
+  }
+  
+  # separate out counts from team names and idx
+  beats <- beats.df[,-c(1,2,ncol(beats.df))]
+  played <- played.df[,-c(1,2,ncol(played.df))]
+  draw <- draw.df[,-c(1,2,ncol(draw.df))]
+  lose <- lose.df[,-c(1,2,ncol(lose.df))]
+  match.teams <- beats.df[,1:2]
+  
+  # create X matrix which index all pairs of teams and fill with 1 for team i, -1 for team j
+  # this matrix has both (i, j) and (j, i) pairs (so has twice the number of rows as beats etc)
+  pairs <- matrix(0, 2*choose(K,2), K)
+  
+  entries_ind <- t(combn(K, 2))
+  rev_entries_ind <- entries_ind[,c(2,1)]
+  all_entries_ind <- rbind(entries_ind, rev_entries_ind)
+  
+  for (l in 1:nrow(all_entries)) {
+    pairs[l,all_entries_ind[l,1]] <- 1
+    pairs[l,all_entries_ind[l,2]] <- -1
+  }
+  
+  # matrix with 1 for team i, -1 for team j, from total of K teams, and row of zeros where those teams don't play
+  # returns a list with one of these matrices for each year
+  # i.e. pairs matrices, with zero is that pair didn't play
+  # initialise list
+  X <- list()
+  
+  # create logical matrix (1 if played, 0 if not - regardless of number of times played)
+  played.mat <- rbind(as.matrix(played), as.matrix(played))
+  played.mat[as.logical(played.mat)] <- 1
+  
+  # for each timepoint, append to the list the pairs matrix with rows of zeros for any pairs that have not played
+  # add a column of 1s at the end (if that pair played), to pick up the home advantage coefficient
+  for (i in 1:TT) {
+    temp_mat <- pairs * played.mat[,i]
+    if.played <- as.numeric(as.logical(played.mat[,i]))
+    X[[length(X)+1]] <- cbind(temp_mat, if.played)
+  }
+  
+  # return
+  return(list(win = beats, draw = draw, lose = lose, total = played, match.teams = match.teams, X=X))
+}
+
