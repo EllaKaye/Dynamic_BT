@@ -49,7 +49,7 @@ rank_to_df <- function(rank_mat) {
 }
 
 # plotting data frames
-pt.it.davidson.mat <- read.csv("Davidson_ties.csv") # needs redoing
+pt.it.davidson.mat <- read.csv("Davidson_ties.csv", header = FALSE) # needs redoing
 dim(pt.it.davidson.mat)
 
 pt.mt <- means_to_df(means_over_time0.7sigma0.7)
@@ -57,6 +57,8 @@ pt.true.mt <- rank_to_df(top7.ranks.mt) # from True_ranks.R
 pt.true.it <- rank_to_df(top7.ranks) # from True_ranks.R
 pt.it <- means_to_df(tie_means0.7sigma0.7pho[1:7,])
 pt.mt.ha <- means_to_df(means_over_time0.7sigma0.7_ha[1:7,])
+pt.it.davidson <- means_to_df(as.matrix(pt.it.davidson.mat[1:7,]))
+
 
 pt.mt.5 <- means_to_df(means_over_time0.5sigma0.7)
 pt.mt.7 <- pt.mt
@@ -99,6 +101,20 @@ p.it.true.rank
 p.it.beta <- ggplot(pt.it, aes(year, beta, group=team, colour=team)) + geom_line() + geom_point()
 p.it.beta <- p.it.beta + scale_x_continuous(breaks=years) + theme_bw()
 p.it.beta
+
+# plot of BT model betas, including ties, Davidson
+p.it.dav.beta <- ggplot(pt.it.davidson, aes(year, beta, group=team, colour=team)) + geom_line() + geom_point()
+p.it.dav.beta <- p.it.dav.beta + scale_x_continuous(breaks=years) + theme_bw()
+p.it.dav.beta
+
+# Compare tie models
+nGraphsRow(list(p.it.beta, p.it.dav.beta))
+pt.it$ties <- "Rao-Kupper"
+pt.it.davidson$ties <- "Davidson"
+ties.col <- c("beta", "year", "team", "ties")
+
+pt.ties <- rbind(pt.it[,ties.col], pt.it.davidson[,ties.col])
+p.it.compare <- ggplot(pt.ties, aes(year, beta, group=team, colour=team)) + geom_line() + geom_point() + facet_wrap(~ ties) + scale_x_continuous(breaks=even_years) + theme_bw()
 
 # plot of BT model rank, including ties
 p.it.rank <- ggplot(pt.it, aes(year, model.rank, group=team, colour=team)) + geom_line() + geom_point()
