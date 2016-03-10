@@ -111,10 +111,25 @@ p.it.dav.beta
 nGraphsRow(list(p.it.beta, p.it.dav.beta))
 pt.it$ties <- "Rao-Kupper"
 pt.it.davidson$ties <- "Davidson"
-ties.col <- c("beta", "year", "team", "ties")
+ties.col <- c("beta", "year", "team", "ties", "model.rank")
 
 pt.ties <- rbind(pt.it[,ties.col], pt.it.davidson[,ties.col])
+
 p.it.compare <- ggplot(pt.ties, aes(year, beta, group=team, colour=team)) + geom_line() + geom_point() + facet_wrap(~ ties) + scale_x_continuous(breaks=even_years) + theme_bw()
+pdf("ties_RK_vs_Davidson.pdf", width=10, height = 5)
+p.it.compare
+dev.off()
+
+pdf("ties_RK_vs_Davidson_pres.pdf", width=10, height = 6)
+p.it.compare + pres_adj
+dev.off()
+
+p.it.compare.rank <- ggplot(pt.ties, aes(year, model.rank, group=team, colour=team)) + geom_line() + geom_point() + facet_wrap(~ ties) + scale_x_continuous(breaks=even_years) + theme_bw() + scale_y_reverse(breaks=1:7) + ylab("rank")
+pdf("ties_RK_vs_Davidson_rank.pdf", width=10, height = 5)
+p.it.compare.rank
+dev.off()
+
+p.it.compare.rank
 
 # plot of BT model rank, including ties
 p.it.rank <- ggplot(pt.it, aes(year, model.rank, group=team, colour=team)) + geom_line() + geom_point()
@@ -136,12 +151,18 @@ p.mt.ha.beta <- p.mt.ha.beta + ylim(c(-1.3, 1.3))
 p.mt.ha.beta <- p.mt.ha.beta + ggtitle("Beta over time, with home advantage")
 p.mt.ha.beta
 
+pres_adj <- theme(axis.text=element_text(size=18), axis.title=element_text(size=24), strip.text.x = element_text(size = 18), strip.text.y = element_text(size = 18), legend.text = element_text(size = 18), legend.title=element_text(size=24), title=element_text(size=24))
+
 # comparing different rho values, for Arsenal
 p.mt.rho.beta <- ggplot(pt.mt.rho[team=="Arsenal",], aes(year, beta, group=rho, colour=rho)) + geom_line() + geom_point()
 p.mt.rho.beta <- p.mt.rho.beta + scale_x_continuous(breaks=years) + theme_bw()
 p.mt.rho.beta <- p.mt.rho.beta + ggtitle("Arsenal betas over time, for different rhos")
 pdf("Arsenal_rho.pdf")
 p.mt.rho.beta
+dev.off()
+
+pdf("Arsenal_rho_pres.pdf", width=10, height=6)
+p.mt.rho.beta + pres_adj
 dev.off()
 
 # plot comparisons
@@ -155,21 +176,27 @@ p.mt.std.vs.ha.beta
 
 pdf("Standard_vs_HA.pdf", width=10, height=5)
 #nGraphsRow(list(p.mt.beta, p.mt.ha.beta))
-p.mt.std.vs.ha.beta
+p.mt.std.vs.ha.beta 
 dev.off()
+
+pdf("Standard_vs_HA_pres.pdf", width=10, height=6)
+#nGraphsRow(list(p.mt.beta, p.mt.ha.beta))
+p.mt.std.vs.ha.beta + pres_adj
+dev.off()
+
 
 # tm for "truth" or "model"
 # itmt for "with draws", "without draws"
 pt.it$tm <- "model"
-pt.it$itmt <- "with draws"
+pt.it$itmt <- "with ties"
 pt.it$rank <- pt.it$model.rank
 pt.mt$tm <- "model"
-pt.mt$itmt <- "without draws"
+pt.mt$itmt <- "without ties"
 pt.mt$rank <- pt.mt$model.rank
 pt.true.it$tm <- "truth"
-pt.true.it$itmt <- "with draws"
+pt.true.it$itmt <- "with ties"
 pt.true.mt$tm <- "truth"
-pt.true.mt$itmt <- "without draws"
+pt.true.mt$itmt <- "without ties"
 cols <- c("rank", "year", "team", "tm", "itmt")
 
 quartet <- rbind(pt.mt[,cols], pt.it[,cols], pt.true.mt[,cols], pt.true.it[,cols])
@@ -180,6 +207,11 @@ p.tm.itmt
 
 pdf("Model_draw_grid.pdf", width=8, height=7)
 p.tm.itmt
+dev.off()
+
+
+pdf("Model_draw_grid_pres.pdf", width=10, height=6)
+p.tm.itmt + pres_adj
 dev.off()
 
 pdf("Model_no_ties_vs_ties.pdf", width=12, height=5)
