@@ -1,14 +1,17 @@
 library(BayesLogit)
 library(MASS)
 
-Recursion.tie = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length_double, time, team_length){
+Recursion.tie = function (w, x_matrix, h_matrix_non_diag, t_t, r_t, team_pair_length_double, time, team_length, gamma){
   y_plus = matrix(0, team_pair_length_double, time)
   beta_plus = matrix(0, team_length, time)
   beta_plus[,1] = rnorm(team_length)
+  # We do not have parameter for the last part, since we are not time varying it
+  # Problem I think this should be gamma but then it will give you 2*gamma output, need to think about incorporation differently!!!
   beta_plus[team_length,1] = 0
   y_plus[,1] = x_matrix[[1]] %*% beta_plus[,1] + mvrnorm(1,rep(0,length(h_matrix_non_diag[,1])),diag(h_matrix_non_diag[,1]))
   for (t in 2 : time){
-    #r_t scalar here
+    # r_t scalar here
+    # The last parameter should not vary, hence dummy_vec
     dummy_vec = as.vector(rnorm(team_length))
     dummy_vec[team_length] = 0
     beta_plus[, t] = t_t %*% (beta_plus[,t-1]) + r_t * dummy_vec
@@ -30,12 +33,19 @@ Backward_recursion.tie = function(y_vec, index_matrix_list, team_pair_length_dou
   R_matrix[ , time +1] = rep(0, team_length)
   for (t in time : 1){
     R_matrix[,t] = t(index_matrix_list[[t]]) %*% ginv(F_t[ , , t]) %*% as.matrix(V_matrix[, t]) + t(L_t[ , ,t]) %*% R_matrix[, t+1]
-    #Error In paper???? Need transpose?
+    #Error In paper as said earlier, tranpose
   }
   Backward_recursion = R_matrix
 }
 
-PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_vector_matrix, tie_matrix, total_matrix, pho, sigma, index_matrix_list, gamma){
+PGSmootherPost_tie = function(iterations, win_vector_matrix, tie_matrix, total_matrix, pho, sigma, index_matrix_list, gamma){
+  # Function for Rao-Kupper Ties Bradley Terry Dynamic Model 
+  # Win_vector_matrix: matrix: number of wins (comparison by time) 
+  # tie_matrix: matrix: number of ties (comparison by time) 
+  # total_matrix: matrix: number of totals (comparison by time)
+  # Gamma parameter is fixed over time 
+  # Index_matrix list is now list index by time points and matrix is now double the team comparison, so the rows should be of form ( ... 1 ... -1 ... 1) (the last one for gamma) and there should
+  # be a row that is the same with 1 and -1 switched, if people dont play just set the row to 0. 
   start.time = Sys.time()
   print("Start time = ")
   print(start.time)
@@ -44,6 +54,7 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
   team_pair_length = dim(win_vector_matrix)[1]
   team_pair_length_double = dim(index_matrix_list[[1]])[1]
   team_length = dim(index_matrix_list[[1]])[2]
+  # Actually this is one more than K number of team from gamma parameter
   beta_init_list <- matrix(0, team_length, time)
   beta_init_list[,1] <- rnorm(team_length)
   for (i in 2 : time){
@@ -51,6 +62,7 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
   }
   beta_init_list[team_length,1:time] = gamma
   beta_samples[[1]] = beta_init_list
+  # We now have two set of Polya Gammas, introduce by product of binomial likelihood
   poly_gamma_var_1 = matrix(0, team_pair_length, time)
   poly_gamma_var_2 = matrix(0, team_pair_length, time)
   pb <- txtProgressBar(min = 0, max = iterations - 1, style = 3)
@@ -66,39 +78,48 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
         t_ij_total = tie_matrix[i,t]
         s_ji_total_rev = total_matrix[i,t] - s_ij_total - t_ij_total 
         if (s_ij_total + t_ij_total == 0){
+          # I have set to 1 here, but it should not matter since the X_t row should be 0 and should not affect posterior, but should check
           poly_gamma_var_1[i, t] = 1
         }
         else{ 
+          # Polya_gamma should not have 2 here! Check algebra below this and change accordingly
           poly_gamma_var_1[i, t] = rpg(1, s_ij_total + t_ij_total, team_play_matrix[i, t]/2)
         }
         if (s_ji_total_rev + t_ij_total == 0){
+          # I have set to 1 here, but it should not matter since the X_t row should be 0 and should not affect posterior, but should check
           poly_gamma_var_2[i,t] = 1
         }
         else{
+          # Polya_gamma should not have 2 here! Check algebra below this and change accordingly
           poly_gamma_var_2[i, t] = rpg(1, s_ji_total_rev + t_ij_total, team_play_matrix[(team_pair_length + i), t]/2)
         }
       }
     }  
     z_matrix_1 = win_vector_matrix + tie_matrix / poly_gamma_var_1
     z_matrix_2 = (total_matrix - win_vector_matrix + tie_matrix) / poly_gamma_var_2
+    # Check algebra here and we combine into a big matrix over time
     z_matrix = rbind(z_matrix_1, z_matrix_2)
     h_t_non_diag_1 = 1/ (4*poly_gamma_var_1)
     h_t_non_diag_2 = 1/ (4*poly_gamma_var_2)
     h_t_non_diag = rbind(h_t_non_diag_1, h_t_non_diag_2)
+    # We combine the matrix 
     t_t = pho * diag(team_length)
     t_t[team_length, team_length] = 1
+    # Represents gamma parameter being fixed
     r_t = sigma * sqrt(1-pho^2)
+    # Will adjust this to 0 for gamme parameter later
     
     #Draw from p(noise for all n)
     w_plus = rep(0,team_pair_length_double * time + team_length * time)
     index = 1
+    # Same as before actually
     for (t in 1 : time){
       new_index = index + team_pair_length_double
       w_plus[index: (new_index - 1)] = mvrnorm(1, rep(0,length(h_t_non_diag[,t])), diag(h_t_non_diag[,t]))
       w_plus[new_index : (new_index + team_length -1) ] = rnorm(team_length)
       index = index + team_length + team_pair_length_double
     }
-    Value = Recursion.tie(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length_double, time, team_length)
+    Value = Recursion.tie(w_plus, index_matrix_list, h_t_non_diag, t_t, r_t, team_pair_length_double, time, team_length, gamma)
     y_plus = Value$y
     beta_plus = Value$beta
     P_matrix = array(0,dim = c(team_length, team_length, time))
@@ -112,6 +133,7 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
       K_matrix[ , , t] = t_t %*% P_matrix[ , , t] %*% t(index_matrix_list[[t]]) %*% ginv(F_matrix[ , , t])
       L_matrix[ , , t] = t_t - K_matrix[ , , t] %*% index_matrix_list[[t]]
       dummy_2 = diag(team_length)
+      # Gamma parameter not varying with time
       dummy_2[team_length, team_length] = 0
       P_matrix[ , , t+1] = t_t%*%P_matrix[, , t] %*% t(L_matrix[ , , t]) + r_t * dummy_2 * r_t 
     }
@@ -123,9 +145,11 @@ PGSmootherPost_tie = function(samples_size, iterations, thinning, burn_in, win_v
     beta_samples_t = matrix(0, team_length, time)
     start_value = rep(0,team_length)
     start_value[team_length] = gamma
+    # Since the beta value gamma should not vary and only come in at polya gamma part, but check carefully
     dummy_3 = R_matrix[,1]
     dummy_3[team_length] = 0
     beta_samples_t[,1] = start_value + dummy_3
+    # Should not be time varying care here, but check to make sure:
     for (t in 2 : time){
       dummy = r_t*(r_t)*R_matrix[,t-1]
       dummy[team_length] = 0
